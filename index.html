@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>VIII-C Note Hub</title>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg1:#fbc2eb; --bg2:#a6c1ee;
+    --glass:rgba(255,255,255,.45);
+    --glass-strong:rgba(255,255,255,.6);
+    --text:#1d2433; --muted:#4b5565;
+    --btn1:#f6d365; --btn2:#fda085;
+    --chip1:#a1c4fd; --chip2:#c2e9fb;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Arial;
+    color:var(--text);
+    background:linear-gradient(135deg,var(--bg1),var(--bg2));
+    min-height:100vh; overflow-x:hidden;
+  }
+
+
+  /* floating shapes */
+  .shape{position:fixed;border-radius:50%;opacity:.28;z-index:-1;filter:blur(2px);animation:float 10s ease-in-out infinite}
+  .s1{width:160px;height:160px;left:-60px;top:15%;background:#ffd6e0}
+  .s2{width:220px;height:220px;right:-80px;bottom:10%;background:#b5ead7;animation-delay:2.2s}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-20px)}}
+
+
+  header{
+    position:sticky;top:0;z-index:10;
+    backdrop-filter:blur(10px);
+    background:rgba(255,255,255,.25);
+    border-bottom:1px solid rgba(255,255,255,.35);
+  }
+  .wrap{max-width:860px;margin:0 auto;padding:14px 16px}
+  h1{margin:4px 0 6px;font-size:1.6rem}
+  .subtle{color:var(--muted);font-size:.95rem}
+
+
+  /* notes list */
+  .list{display:grid;gap:12px;padding:16px}
+  @media(min-width:720px){ .list{grid-template-columns:1fr 1fr} }
+  .card{
+    background:var(--glass);
+    backdrop-filter:blur(12px);
+    border:1px solid rgba(255,255,255,.45);
+    border-radius:16px; padding:14px;
+    box-shadow:0 10px 24px rgba(0,0,0,.08);
+    transition:transform .25s ease, background .25s ease;
+  }
+  .card:hover{ transform:translateY(-3px); background:var(--glass-strong) }
+  .row{display:flex;gap:10px;align-items:center}
+  .grow{flex:1;min-width:0}
+  .fileicon{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;
+    background:linear-gradient(135deg,#ffe8ef,#e3f2ff);font-size:20px}
+  .name{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .meta{color:var(--muted);font-size:.9rem}
+  .chip{display:inline-block;margin-top:6px;padding:4px 10px;border-radius:999px;
+    background:linear-gradient(135deg,var(--chip1),var(--chip2));color:#16324f;font-weight:600;font-size:.8rem}
+  .actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .btn{
+    appearance:none;border:none;cursor:pointer;font-weight:700;
+    padding:10px 14px;border-radius:10px;
+    background:linear-gradient(135deg,var(--btn1),var(--btn2)); color:#3a1a00;
+    text-decoration:none; display:inline-block;
+  }
+  .ghost{background:rgba(255,255,255,.65); color:#18324d; border:1px solid rgba(255,255,255,.8)}
+
+
+  /* FAB + bottom sheet */
+  .fab{
+    position:fixed;right:20px;bottom:20px;width:62px;height:62px;border-radius:50%;
+    display:grid;place-items:center;font-size:30px;color:#fff;cursor:pointer;z-index:30;
+    background:linear-gradient(135deg,#ffcf9f,#ff9aa2); box-shadow:0 10px 24px rgba(0,0,0,.2);
+    animation:pulse 2s infinite;
+  }
+  @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+
+
+  .sheet{
+    position:fixed;left:0;right:0;bottom:-100%;z-index:40;
+    background:var(--glass-strong); backdrop-filter:blur(14px);
+    border-top-left-radius:20px;border-top-right-radius:20px;
+    box-shadow:0 -12px 30px rgba(0,0,0,.18); padding:16px; transition:bottom .35s ease;
+  }
+  .sheet.show{ bottom:0 }
+  .grid{display:grid;gap:10px}
+  input[type="text"], input[type="file"]{
+    width:100%;padding:12px 14px;border-radius:12px;border:1px solid rgba(0,0,0,.08);
+    background:#fff;color:#111;font-size:1rem
+  }
+  .bar{height:10px;background:rgba(255,255,255,.6);border-radius:999px;overflow:hidden}
+  .bar>span{display:block;height:100%;width:0;background:linear-gradient(135deg,#43e97b,#38f9d7)}
+
+
+  .empty{margin:24px auto;text-align:center;color:#314866}
+</style>
+</head>
+<body>
+  <div class="shape s1"></div><div class="shape s2"></div>
+
+
+  <header>
+    <div class="wrap">
+      <h1>Class Notes 📚</h1>
+      <div class="subtle">Upload PDFs, PPTs, DOCX & Images • Made For VIII-C • By - Akshaj Anand</div>
+    </div>
+  </header>
+
+
+  <main class="wrap">
+    <div id="list" class="list" aria-live="polite"></div>
+    <div id="empty" class="empty" style="display:none">No notes yet. Tap the <strong>+</strong> to upload!</div>
+  </main>
+
+
+  <!-- Floating action button -->
+  <div class="fab" id="fab" title="Upload">+</div>
+
+
+  <!-- Bottom-sheet upload -->
+  <div class="sheet" id="sheet">
+    <div class="grid">
+      <input id="uploader" type="text" placeholder="Your name">
+      <input id="subject"  type="text" placeholder="Subject (e.g., Biology)">
+      <input id="file"     type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.webp,.txt">
+      <div class="bar" aria-label="Upload progress"><span id="prog"></span></div>
+      <div class="row" style="justify-content:flex-end;gap:10px">
+        <button class="btn ghost" id="cancelBtn" type="button">Cancel</button>
+        <button class="btn" id="uploadBtn" type="button">Upload</button>
+      </div>
+    </div>
+  </div>
+
+
+<script>
+
+const SUPABASE_URL = "https://twojutsunvngrorlqghy.supabase.co";   
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3b2p1dHN1bnZuZ3JvcmxxZ2h5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUxODIxNjUsImV4cCI6MjA3MDc1ODE2NX0.nYHmB45iutQOndTmXDiookFcffaY-6O-sdfIrR8Igus";      // anon public key from Settings → API
+const BUCKET = "notes";                    
+
+
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+
+// UI refs
+const listEl = document.getElementById('list');
+const emptyEl = document.getElementById('empty');
+const sheet = document.getElementById('sheet');
+const fab = document.getElementById('fab');
+const uploadBtn = document.getElementById('uploadBtn');
+const cancelBtn = document.getElementById('cancelBtn');
+const prog = document.getElementById('prog');
+
+
+fab.onclick = () => sheet.classList.add('show');
+cancelBtn.onclick = () => { sheet.classList.remove('show'); resetForm(); };
+uploadBtn.onclick = uploadFile;
+
+
+function resetForm(){
+  document.getElementById('uploader').value = "";
+  document.getElementById('subject').value  = "";
+  document.getElementById('file').value     = "";
+  prog.style.width = "0%";
+}
+
+
+function iconFor(name=""){
+  const e = (name.split(".").pop()||"").toLowerCase();
+  if(["pdf"].includes(e)) return "📄";
+  if(["ppt","pptx"].includes(e)) return "📊";
+  if(["doc","docx"].includes(e)) return "📝";
+  if(["xls","xlsx","csv"].includes(e)) return "📈";
+  if(["png","jpg","jpeg","gif","webp"].includes(e)) return "🖼️";
+  return "📁";
+}
+
+
+function safe(s){ return (s||"").replace(/[^\w\s.-]/g,"").trim().replace(/\s+/g," "); }
+
+
+async function uploadFile(){
+  const uploader = safe(document.getElementById('uploader').value) || "Anonymous";
+  const subject  = safe(document.getElementById('subject').value)  || "General";
+  const fileEl   = document.getElementById('file');
+  const file     = fileEl.files[0];
+
+
+  if(!file){ alert("Pick a file."); return; }
+
+
+  
+
+
+  const path = `${subject}/${Date.now()}__${safe(file.name)}`;
+
+
+  
+  let p=0; const fake = setInterval(()=>{ p=Math.min(p+5,90); prog.style.width=p+"%"; }, 120);
+
+
+  const { error: upErr } = await sb.storage.from(BUCKET).upload(path, file, { upsert:false });
+  clearInterval(fake);
+
+
+  if(upErr){ console.error(upErr); alert("Upload failed: " + upErr.message); prog.style.width="0%"; return; }
+
+
+  const { data: urlData } = sb.storage.from(BUCKET).getPublicUrl(path);
+  prog.style.width="100%";
+
+
+  // Save metadata
+  const { error: dbErr } = await sb.from('notes_data').insert([{ uploader, subject, url: urlData.publicUrl, original_name: file.name }]);
+  if(dbErr){ console.error(dbErr); alert("Saved file, but DB insert failed. Check table / RLS."); }
+  sheet.classList.remove('show');
+  resetForm();
+  await loadNotes();
+}
+
+
+async function loadNotes(){
+  listEl.innerHTML = "";
+  // get rows
+  const { data, error } = await sb.from('notes_data').select('*').order('id', { ascending:false });
+  if(error){ console.error(error); listEl.innerHTML = `<div class="card">Couldn’t load notes. Check API keys/table.</div>`; return; }
+
+
+  if(!data || data.length===0){ emptyEl.style.display="block"; return; }
+  emptyEl.style.display="none";
+
+
+  listEl.innerHTML = data.map(n=>`
+    <div class="card">
+      <div class="row">
+        <div class="fileicon" aria-hidden="true">${iconFor(n.original_name || n.url)}</div>
+        <div class="grow">
+          <div class="name" title="${n.original_name || ''}">${n.original_name || n.url.split('/').pop()}</div>
+          <div class="meta">by ${n.uploader || "Anonymous"} • <span class="chip">${n.subject || "General"}</span></div>
+        </div>
+      </div>
+      <div class="actions">
+        <a class="btn ghost" href="${n.url}" target="_blank" rel="noopener">Open</a>
+        <a class="btn" href="${n.url}" download target="_blank" rel="noopener">Download</a>
+      </div>
+    </div>
+  `).join('');
+}
+
+
+// initial load
+loadNotes();
+</script>
+</body>
+</html>
+
+

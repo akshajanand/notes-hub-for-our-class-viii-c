@@ -3,261 +3,502 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>VIII-C Note Hub</title>
-<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<title>VIII-C Hub — Notes • Homework • Announcements • Timetable</title>
+
+<!-- Supabase (must load before any usage) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.4/dist/umd/supabase.min.js"></script>
+
 <style>
-  :root{
-    --bg1:#fbc2eb; --bg2:#a6c1ee;
-    --glass:rgba(255,255,255,.45);
-    --glass-strong:rgba(255,255,255,.6);
-    --text:#1d2433; --muted:#4b5565;
-    --btn1:#f6d365; --btn2:#fda085;
-    --chip1:#a1c4fd; --chip2:#c2e9fb;
-  }
-  *{box-sizing:border-box}
-  body{
-    margin:0; font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Arial;
-    color:var(--text);
-    background:linear-gradient(135deg,var(--bg1),var(--bg2));
-    min-height:100vh; overflow-x:hidden;
-  }
+:root{
+  --bg1:#fbc2eb; --bg2:#a6c1ee; --glass:rgba(255,255,255,.45); --glass-strong:rgba(255,255,255,.6);
+  --text:#1d2433; --muted:#4b5565; --btn1:#f6d365; --btn2:#fda085;
+  --ok:#0b8f4d; --warn:#c05621; --err:#b91c1c; --info:#1d4ed8;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Arial;color:var(--text);
+  background:linear-gradient(135deg,var(--bg1),var(--bg2));min-height:100vh;overflow-x:hidden;}
+header{position:sticky;top:0;z-index:20;backdrop-filter:blur(10px);background:rgba(255,255,255,.25);
+  border-bottom:1px solid rgba(255,255,255,.35);}
+.wrap{max-width:1000px;margin:0 auto;padding:14px 16px;}
+.header-content{text-align:center;}
+h1{margin:4px 0 6px;font-size:1.9rem}
+.subtle{color:var(--muted);font-size:.98rem;margin-top:10px}
+.controls{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:10px;margin:14px 0;}
+.tabs{display:flex;gap:10px;justify-content:center;margin:10px 0 16px;flex-wrap:wrap;}
+.tab{flex:1;min-width:120px;text-align:center;padding:10px 0;border-radius:12px;cursor:pointer;font-weight:700;background:var(--glass);transition:all 0.25s ease;}
+.tab.active{background:var(--glass-strong);transform:translateY(-2px);}
+.tab:hover:not(.active){background:rgba(255,255,255,.55);}
+.list{display:grid;gap:12px;padding:16px 0;}
+@media(min-width:720px){ .list{grid-template-columns:1fr 1fr} }
+.card{background:var(--glass);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.45);
+  border-radius:16px;padding:14px;box-shadow:0 10px 24px rgba(0,0,0,.08);transition:transform .25s ease;
+  text-align:left;position:relative;}
+.card:hover{ transform:translateY(-3px); background:var(--glass-strong) }
+.row{display:flex;gap:10px;align-items:center}
+.grow{flex:1;min-width:0}
+.name{font-weight:800;}
+.meta{font-size:0.9rem; color:var(--muted);}
+.card p {margin: 10px 0; white-space: pre-wrap; word-wrap: break-word;}
+.btn{appearance:none;border:none;cursor:pointer;font-weight:800;padding:8px 12px;border-radius:10px;
+  background:linear-gradient(135deg,var(--btn1),var(--btn2)); color:#3a1a00;text-decoration:none;display:inline-block;
+  font-size:0.9rem;transition:all 0.2s ease;}
+.btn:hover{transform:translateY(-1px);}
+.btn.sm{padding:6px 10px;font-size:.85rem}
+.btn.ghost{background:#fff; color:#111; border:1px solid rgba(0,0,0,.08)}
+.pill{padding:4px 8px;border-radius:999px;font-size:.8rem;background:rgba(255,255,255,.7)}
 
+.fab{position:fixed;right:20px;bottom:20px;width:62px;height:62px;border-radius:50%;display:grid;
+  place-items:center;font-size:30px;color:#fff;cursor:pointer;z-index:30;
+  background:linear-gradient(135deg,#ffcf9f,#ff9aa2); box-shadow:0 10px 24px rgba(0,0,0,.2);}
 
-  /* floating shapes */
-  .shape{position:fixed;border-radius:50%;opacity:.28;z-index:-1;filter:blur(2px);animation:float 10s ease-in-out infinite}
-  .s1{width:160px;height:160px;left:-60px;top:15%;background:#ffd6e0}
-  .s2{width:220px;height:220px;right:-80px;bottom:10%;background:#b5ead7;animation-delay:2.2s}
-  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-20px)}}
+.sheet{position:fixed;left:0;right:0;bottom:-120%;z-index:40;background:var(--glass-strong);
+  backdrop-filter:blur(14px);border-top-left-radius:20px;border-top-right-radius:20px;
+  box-shadow:0 -12px 30px rgba(0,0,0,.18); padding:20px; transition:bottom .35s ease;
+  max-height:90vh;overflow-y:auto;}
+.sheet.show{bottom:0;}
+.grid{display:grid;gap:12px}
+input[type="text"], input[type="password"], textarea, select{width:100%;padding:12px 14px;border-radius:12px;border:1px solid rgba(0,0,0,.08);
+  background:#fff;color:#111;font-size:1rem;font-family:inherit;}
+textarea{min-height:100px;resize:vertical;}
+.drop-zone{border:2px dashed #ccc;border-radius:12px;padding:30px;text-align:center;color:#666;cursor:pointer;transition:all 0.3s ease;}
+.drop-zone.dragover{border-color:#7c4dff;background:rgba(124,77,255,0.05);}
+.drop-zone.has-file{border-color:#4caf50;background:rgba(76,175,80,0.05);color:#2e7d32;}
+.bar{height:8px;background:rgba(255,255,255,.6);border-radius:999px;overflow:hidden;margin:10px 0;}
+.bar>span{display:block;height:100%;width:0;background:linear-gradient(135deg,#43e97b,#38f9d7);transition:width 0.3s ease;}
+.empty{margin:40px auto;text-align:center;color:#314866;font-size:1.1rem;}
 
+.toast{max-width:1000px;margin:10px auto 0;display:none}
+.toast.show{display:block}
+.toast .box{background:#fff;border-left:6px solid var(--info);border-radius:12px;padding:12px 14px;box-shadow:0 6px 18px rgba(0,0,0,.08);}
+.toast.ok .box{border-left-color:var(--ok)}
+.toast.err .box{border-left-color:var(--err)}
+.toast.warn .box{border-left-color:var(--warn)}
 
-  header{
-    position:sticky;top:0;z-index:10;
-    backdrop-filter:blur(10px);
-    background:rgba(255,255,255,.25);
-    border-bottom:1px solid rgba(255,255,255,.35);
-  }
-  .wrap{max-width:860px;margin:0 auto;padding:14px 16px}
-  h1{margin:4px 0 6px;font-size:1.6rem}
-  .subtle{color:var(--muted);font-size:.95rem}
+.error-msg{background:rgba(244,67,54,0.1);border:1px solid rgba(244,67,54,0.3);color:#c62828;padding:10px;border-radius:8px;font-size:0.9rem;}
 
+.file-list { margin-top: 10px; }
+.file-link{display:block;color:#1d4ed8;text-decoration:underline;font-size:0.9rem;margin-top:6px;word-break:break-all;}
+.delete-btn{position:absolute;top:10px;right:10px;background:#ff4d4d;color:#fff;border:none;border-radius:6px;padding:4px 8px;font-size:0.75rem;cursor:pointer;display:none;}
+.delete-btn.show{display:inline-block;}
 
-  /* notes list */
-  .list{display:grid;gap:12px;padding:16px}
-  @media(min-width:720px){ .list{grid-template-columns:1fr 1fr} }
-  .card{
-    background:var(--glass);
-    backdrop-filter:blur(12px);
-    border:1px solid rgba(255,255,255,.45);
-    border-radius:16px; padding:14px;
-    box-shadow:0 10px 24px rgba(0,0,0,.08);
-    transition:transform .25s ease, background .25s ease;
-  }
-  .card:hover{ transform:translateY(-3px); background:var(--glass-strong) }
-  .row{display:flex;gap:10px;align-items:center}
-  .grow{flex:1;min-width:0}
-  .fileicon{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;
-    background:linear-gradient(135deg,#ffe8ef,#e3f2ff);font-size:20px}
-  .name{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .meta{color:var(--muted);font-size:.9rem}
-  .chip{display:inline-block;margin-top:6px;padding:4px 10px;border-radius:999px;
-    background:linear-gradient(135deg,var(--chip1),var(--chip2));color:#16324f;font-weight:600;font-size:.8rem}
-  .actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
-  .btn{
-    appearance:none;border:none;cursor:pointer;font-weight:700;
-    padding:10px 14px;border-radius:10px;
-    background:linear-gradient(135deg,var(--btn1),var(--btn2)); color:#3a1a00;
-    text-decoration:none; display:inline-block;
-  }
-  .ghost{background:rgba(255,255,255,.65); color:#18324d; border:1px solid rgba(255,255,255,.8)}
+.timetable{background:var(--glass);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.45);
+  border-radius:16px;padding:14px;box-shadow:0 10px 24px rgba(0,0,0,.08);}
+.thead,.trow{display:grid;grid-template-columns:140px repeat(6,1fr);gap:8px;align-items:center}
+.thead{font-weight:800;margin-bottom:8px}
+.tcell{background:rgba(255,255,255,.7);border-radius:10px;padding:10px 12px;min-height:44px;display:flex;align-items:center}
+.tcell input{width:100%;border:none;background:transparent;outline:none;font-size:0.95rem}
+.tcontrols{display:flex;gap:10px;justify-content:flex-end;margin-top:10px}
+.unlock{margin-left:auto;background:#ffa500;color:#fff;border:none;border-radius:10px;padding:8px 12px;font-weight:800;cursor:pointer;}
 
-
-  /* FAB + bottom sheet */
-  .fab{
-    position:fixed;right:20px;bottom:20px;width:62px;height:62px;border-radius:50%;
-    display:grid;place-items:center;font-size:30px;color:#fff;cursor:pointer;z-index:30;
-    background:linear-gradient(135deg,#ffcf9f,#ff9aa2); box-shadow:0 10px 24px rgba(0,0,0,.2);
-    animation:pulse 2s infinite;
-  }
-  @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
-
-
-  .sheet{
-    position:fixed;left:0;right:0;bottom:-100%;z-index:40;
-    background:var(--glass-strong); backdrop-filter:blur(14px);
-    border-top-left-radius:20px;border-top-right-radius:20px;
-    box-shadow:0 -12px 30px rgba(0,0,0,.18); padding:16px; transition:bottom .35s ease;
-  }
-  .sheet.show{ bottom:0 }
-  .grid{display:grid;gap:10px}
-  input[type="text"], input[type="file"]{
-    width:100%;padding:12px 14px;border-radius:12px;border:1px solid rgba(0,0,0,.08);
-    background:#fff;color:#111;font-size:1rem
-  }
-  .bar{height:10px;background:rgba(255,255,255,.6);border-radius:999px;overflow:hidden}
-  .bar>span{display:block;height:100%;width:0;background:linear-gradient(135deg,#43e97b,#38f9d7)}
-
-
-  .empty{margin:24px auto;text-align:center;color:#314866}
+/* Inline unlock panel */
+#unlockPanel{display:none;gap:8px;align-items:center}
+#unlockPanel.show{display:flex}
 </style>
 </head>
+
 <body>
-  <div class="shape s1"></div><div class="shape s2"></div>
-
-
-  <header>
-    <div class="wrap">
-      <h1>Class Notes 📚</h1>
-      <div class="subtle">Upload PDFs, PPTs, DOCX & Images • Made For VIII-C • By - Akshaj Anand</div>
+<header>
+  <div class="wrap">
+    <div class="header-content">
+      <h1>Class VIII-C Hub </h1>
+      <div class="subtle">Notes, Homework, Announcements & Timetable •  Made By Akshaj Anand For VIII-C</div>
     </div>
-  </header>
+    <div id="toast" class="toast"><div class="box" id="toastMsg">Welcome!</div></div>
+    <div class="tabs">
+      <div class="tab active" id="notesTab"> Notes</div>
+      <div class="tab" id="homeworkTab"> Homework</div>
+      <div class="tab" id="announcementsTab"> Announcements</div>
+      <div class="tab" id="timetableTab"> Timetable</div>
+    </div>
+    <div class="controls">
+      <select id="sortSelect">
+        <option value="newest">Sort: Newest First</option>
+        <option value="oldest">Sort: Oldest First</option>
+        <option value="subject">Sort: Subject A→Z</option>
+      </select>
+      <input type="text" id="filterInput" placeholder="Filter by subject or uploader..." style="flex:1; max-width:300px;">
+      <button class="unlock" id="unlockBtn"> Unlock Admin</button>
+      <span id="unlockPanel">
+        <input id="unlockPw" type="password" placeholder="Admin password" />
+        <button id="unlockConfirm" class="btn sm">Confirm</button>
+      </span>
+    </div>
+  </div>
+</header>
 
+<main class="wrap">
+  <div id="list" class="list" aria-live="polite"></div>
+  <div id="empty" class="empty">No items yet. Tap <strong>+</strong> to add something!</div>
+  <div id="loading" class="empty" style="display:none;">Loading...</div>
 
-  <main class="wrap">
-    <div id="list" class="list" aria-live="polite"></div>
-    <div id="empty" class="empty" style="display:none">No notes yet. Tap the <strong>+</strong> to upload!</div>
-  </main>
-
-
-  <!-- Floating action button -->
-  <div class="fab" id="fab" title="Upload">+</div>
-
-
-  <!-- Bottom-sheet upload -->
-  <div class="sheet" id="sheet">
-    <div class="grid">
-      <input id="uploader" type="text" placeholder="Your name">
-      <input id="subject"  type="text" placeholder="Subject (e.g., Biology)">
-      <input id="file"     type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.webp,.txt">
-      <div class="bar" aria-label="Upload progress"><span id="prog"></span></div>
-      <div class="row" style="justify-content:flex-end;gap:10px">
-        <button class="btn ghost" id="cancelBtn" type="button">Cancel</button>
-        <button class="btn" id="uploadBtn" type="button">Upload</button>
+  <div id="timetableView" style="display:none;">
+    <div class="timetable">
+      <div class="thead">
+        <div class="tcell">Day</div>
+        <div class="tcell">Period 1</div>
+        <div class="tcell">Period 2</div>
+        <div class="tcell">Period 3</div>
+        <div class="tcell">Period 4</div>
+        <div class="tcell">Period 5</div>
+        <div class="tcell">Period 6</div>
+      </div>
+      <div id="ttRows"></div>
+      <div class="tcontrols">
+        <button class="btn" id="saveTTBtn" disabled> Save Timetable</button>
       </div>
     </div>
   </div>
+</main>
 
+<div class="fab" id="fab" title="Add Item">+</div>
+
+<div class="sheet" id="sheet">
+  <div class="grid">
+    <h3 id="sheetTitle" style="margin:0; text-align:center;">Add Item</h3>
+    <input id="uploader" type="text" placeholder="Your name" required>
+    <input id="subject" type="text" placeholder="Subject" required>
+    <textarea id="postText" placeholder="Write note or homework description..."></textarea>
+    <textarea id="announcementText" placeholder="Write your announcement..." style="display:none;"></textarea>
+    <div id="dropZone" class="drop-zone"> Drag & Drop files or click to select</div>
+    <input id="file" type="file" multiple style="display:none;">
+    <input id="password" type="password" placeholder="Enter password to post">
+    <div class="bar"><span id="prog"></span></div>
+    <div id="sheetMsg" class="error-msg" style="display:none;"></div>
+    <div class="row" style="justify-content:flex-end;gap:10px">
+      <button class="btn" id="cancelBtn">Cancel</button>
+      <button class="btn" id="uploadBtn">Post</button>
+    </div>
+  </div>
+</div>
 
 <script>
+/* ========= CONFIG ========= */
+const SUPABASE_URL = "https://dzlejyetwcevmikfqilx.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR6bGVqeWV0d2Nldm1pa2ZxaWx4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUyNjY0ODAsImV4cCI6MjA3MDg0MjQ4MH0.YsYdEwCH_jyrJs0iTVn0jXOfKYGPA8lpOUoBotBRYYk";
+const PASSWORD = "gurukul@123";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const SUPABASE_URL = "https://twojutsunvngrorlqghy.supabase.co";   
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3b2p1dHN1bnZuZ3JvcmxxZ2h5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUxODIxNjUsImV4cCI6MjA3MDc1ODE2NX0.nYHmB45iutQOndTmXDiookFcffaY-6O-sdfIrR8Igus";      // anon public key from Settings → API
-const BUCKET = "notes";                    
+/* ========= STATE ========= */
+let currentTab = "notes";
+let filesToUpload = [];
+let adminUnlocked = false;
 
+/* ========= DOM ========= */
+const listEl = document.getElementById("list");
+const emptyEl = document.getElementById("empty");
+const loadingEl = document.getElementById("loading");
+const timetableView = document.getElementById("timetableView");
+const ttRows = document.getElementById("ttRows");
+const notesTab = document.getElementById("notesTab");
+const homeworkTab = document.getElementById("homeworkTab");
+const announcementsTab = document.getElementById("announcementsTab");
+const timetableTab = document.getElementById("timetableTab");
+const sortSelect = document.getElementById("sortSelect");
+const filterInput = document.getElementById("filterInput");
+const unlockBtn = document.getElementById("unlockBtn");
+const unlockPanel = document.getElementById("unlockPanel");
+const unlockPw = document.getElementById("unlockPw");
+const unlockConfirm = document.getElementById("unlockConfirm");
+const fab = document.getElementById("fab");
+const sheet = document.getElementById("sheet");
+const uploaderInput = document.getElementById("uploader");
+const subjectInput = document.getElementById("subject");
+const postText = document.getElementById("postText");
+const announcementText = document.getElementById("announcementText");
+const fileInput = document.getElementById("file");
+const dropZone = document.getElementById("dropZone");
+const uploadBtn = document.getElementById("uploadBtn");
+const cancelBtn = document.getElementById("cancelBtn");
+const progBarSpan = document.getElementById("prog");
+const sheetMsg = document.getElementById("sheetMsg");
+const sheetTitle = document.getElementById("sheetTitle");
+const passwordInput = document.getElementById("password");
+const toast = document.getElementById("toast");
+const toastMsg = document.getElementById("toastMsg");
+const saveTTBtn = document.getElementById("saveTTBtn");
 
-
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-
-// UI refs
-const listEl = document.getElementById('list');
-const emptyEl = document.getElementById('empty');
-const sheet = document.getElementById('sheet');
-const fab = document.getElementById('fab');
-const uploadBtn = document.getElementById('uploadBtn');
-const cancelBtn = document.getElementById('cancelBtn');
-const prog = document.getElementById('prog');
-
-
-fab.onclick = () => sheet.classList.add('show');
-cancelBtn.onclick = () => { sheet.classList.remove('show'); resetForm(); };
-uploadBtn.onclick = uploadFile;
-
-
-function resetForm(){
-  document.getElementById('uploader').value = "";
-  document.getElementById('subject').value  = "";
-  document.getElementById('file').value     = "";
-  prog.style.width = "0%";
+/* ========= TOAST ========= */
+function showToast(message, kind="info", timeout=2500){
+  toast.className = "toast show " + (kind==="ok"?"ok":kind==="err"?"err":kind==="warn"?"warn":"");
+  toastMsg.textContent = message;
+  if(timeout){ setTimeout(()=>{ toast.className = "toast"; }, timeout); }
 }
 
+/* ========= ESCAPERS ========= */
+function escapeHtml(s){ return (s||"").replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&#34;","'":"&#39;" }[m])); }
+function escapeAttr(s){ return escapeHtml(s).replace(/"/g,"&quot;"); }
 
-function iconFor(name=""){
-  const e = (name.split(".").pop()||"").toLowerCase();
-  if(["pdf"].includes(e)) return "📄";
-  if(["ppt","pptx"].includes(e)) return "📊";
-  if(["doc","docx"].includes(e)) return "📝";
-  if(["xls","xlsx","csv"].includes(e)) return "📈";
-  if(["png","jpg","jpeg","gif","webp"].includes(e)) return "🖼️";
-  return "📁";
+/* ========= TABS ========= */
+function switchTab(tab){
+  currentTab = tab;
+  [notesTab,homeworkTab,announcementsTab,timetableTab].forEach(t=>t.classList.remove("active"));
+  if(tab==="notes") notesTab.classList.add("active");
+  if(tab==="homework") homeworkTab.classList.add("active");
+  if(tab==="announcements") announcementsTab.classList.add("active");
+  if(tab==="timetable") timetableTab.classList.add("active");
+
+  document.getElementById("list").style.display = (tab==="timetable")?"none":"grid";
+  document.getElementById("timetableView").style.display = (tab==="timetable")?"block":"none";
+
+  if(tab==="timetable") loadTimetable();
+  else loadItems();
 }
+notesTab.onclick = ()=>switchTab("notes");
+homeworkTab.onclick = ()=>switchTab("homework");
+announcementsTab.onclick = ()=>switchTab("announcements");
+timetableTab.onclick = ()=>switchTab("timetable");
 
-
-function safe(s){ return (s||"").replace(/[^\w\s.-]/g,"").trim().replace(/\s+/g," "); }
-
-
-async function uploadFile(){
-  const uploader = safe(document.getElementById('uploader').value) || "Anonymous";
-  const subject  = safe(document.getElementById('subject').value)  || "General";
-  const fileEl   = document.getElementById('file');
-  const file     = fileEl.files[0];
-
-
-  if(!file){ alert("Pick a file."); return; }
-
-
-  
-
-
-  const path = `${subject}/${Date.now()}__${safe(file.name)}`;
-
-
-  
-  let p=0; const fake = setInterval(()=>{ p=Math.min(p+5,90); prog.style.width=p+"%"; }, 120);
-
-
-  const { error: upErr } = await sb.storage.from(BUCKET).upload(path, file, { upsert:false });
-  clearInterval(fake);
-
-
-  if(upErr){ console.error(upErr); alert("Upload failed: " + upErr.message); prog.style.width="0%"; return; }
-
-
-  const { data: urlData } = sb.storage.from(BUCKET).getPublicUrl(path);
-  prog.style.width="100%";
-
-
-  // Save metadata
-  const { error: dbErr } = await sb.from('notes_data').insert([{ uploader, subject, url: urlData.publicUrl, original_name: file.name }]);
-  if(dbErr){ console.error(dbErr); alert("Saved file, but DB insert failed. Check table / RLS."); }
-  sheet.classList.remove('show');
-  resetForm();
-  await loadNotes();
-}
-
-
-async function loadNotes(){
+/* ========= LOAD LISTS ========= */
+async function loadItems(){
   listEl.innerHTML = "";
-  // get rows
-  const { data, error } = await sb.from('notes_data').select('*').order('id', { ascending:false });
-  if(error){ console.error(error); listEl.innerHTML = `<div class="card">Couldn’t load notes. Check API keys/table.</div>`; return; }
+  loadingEl.style.display = "block";
+  emptyEl.style.display = "none";
 
+  let query = sb.from(currentTab).select("*");
+  const filterText = filterInput.value.trim().toLowerCase();
+  if(filterText){
+    query = query.or(`subject.ilike.%${filterText}%,uploader.ilike.%${filterText}%`);
+  }
+  const sortOption = sortSelect.value;
+  if (sortOption === "newest") query = query.order("timestamp", { ascending:false });
+  else if (sortOption === "oldest") query = query.order("timestamp", { ascending:true });
+  else if (sortOption === "subject") query = query.order("subject", { ascending:true });
 
-  if(!data || data.length===0){ emptyEl.style.display="block"; return; }
-  emptyEl.style.display="none";
+  const { data, error } = await query;
+  loadingEl.style.display = "none";
 
+  if(error){
+    emptyEl.innerText = "Error loading items: " + error.message;
+    emptyEl.style.display = "block";
+    showToast("Failed to load " + currentTab + ": " + error.message, "err", 4000);
+    return;
+  }
+  if(!data || data.length===0){
+    emptyEl.style.display = "block";
+    return;
+  }
+  emptyEl.style.display = "none";
 
-  listEl.innerHTML = data.map(n=>`
-    <div class="card">
+  listEl.innerHTML = data.map(item=>{
+    const cleanAttachments = (item.attachments||[]).map(f=>({ path:f, name: f.substring(f.indexOf('_')+1) }));
+    const filesHtml = cleanAttachments.map(f =>
+      `<a class="file-link" href="${SUPABASE_URL}/storage/v1/object/public/${currentTab}/${f.path}" target="_blank" rel="noopener noreferrer">${f.name}</a>`
+    ).join("");
+
+    return `<div class="card">
       <div class="row">
-        <div class="fileicon" aria-hidden="true">${iconFor(n.original_name || n.url)}</div>
         <div class="grow">
-          <div class="name" title="${n.original_name || ''}">${n.original_name || n.url.split('/').pop()}</div>
-          <div class="meta">by ${n.uploader || "Anonymous"} • <span class="chip">${n.subject || "General"}</span></div>
+          <div class="name">${escapeHtml(item.subject||"")}</div>
+          <div class="meta">by ${escapeHtml(item.uploader||"")} • ${new Date(item.timestamp).toLocaleString()}</div>
         </div>
+        <button class="delete-btn ${adminUnlocked?'show':''}" data-id="${item.id}">Delete</button>
       </div>
-      <div class="actions">
-        <a class="btn ghost" href="${n.url}" target="_blank" rel="noopener">Open</a>
-        <a class="btn" href="${n.url}" download target="_blank" rel="noopener">Download</a>
-      </div>
-    </div>
-  `).join('');
+      ${item.text ? `<p>${escapeHtml(item.text)}`.replace(/\n/g,"<br>") + `</p>` : ""}
+      ${filesHtml ? `<div class="file-list">${filesHtml}</div>` : ""}
+    </div>`;
+  }).join("");
+
+  listEl.querySelectorAll(".delete-btn").forEach(btn=>{
+    btn.onclick = ()=> handleDelete(parseInt(btn.dataset.id,10));
+  });
+}
+sortSelect.addEventListener("change", loadItems);
+filterInput.addEventListener("input", loadItems);
+
+/* ========= DELETE ========= */
+async function handleDelete(id){
+  if(!adminUnlocked){ showToast("Unlock admin first.", "warn"); return; }
+  const { error } = await sb.from(currentTab).delete().eq("id", id);
+  if(error){ showToast("Delete failed: " + error.message, "err", 4000); return; }
+  showToast("Deleted.", "ok");
+  loadItems();
 }
 
+/* ========= UPLOAD SHEET ========= */
+function resetSheet(){
+  sheet.classList.remove("show");
+  uploaderInput.value = "";
+  subjectInput.value = "";
+  postText.value = "";
+  announcementText.value = "";
+  fileInput.value = "";
+  filesToUpload = [];
+  dropZone.classList.remove("has-file");
+  dropZone.innerText = "📁 Drag & Drop files or click to select";
+  progBarSpan.parentElement.style.display = "none";
+  progBarSpan.style.width = "0%";
+  sheetMsg.style.display = "none";
+  uploadBtn.disabled = false;
+  uploadBtn.innerText = "Post";
+  passwordInput.value = "";
+}
+fab.onclick = ()=>{
+  sheet.classList.add("show");
+  sheetTitle.innerText = `Add ${currentTab.charAt(0).toUpperCase()+currentTab.slice(1)}`;
+  const isAnnounce = currentTab==="announcements";
+  postText.style.display = !isAnnounce ? "block" : "none";
+  announcementText.style.display = isAnnounce ? "block" : "none";
+    passwordInput.style.display = (currentTab==="homework" || currentTab==="announcements") ? "block" : "none";
 
-// initial load
-loadNotes();
+};
+cancelBtn.onclick = resetSheet;
+
+function handleFileSelection(files){
+  filesToUpload = Array.from(files);
+  dropZone.classList.add("has-file");
+  dropZone.innerText = filesToUpload.length>0 ? `${filesToUpload.length} file(s) selected` : "📁 Drag & Drop files or click to select";
+  if(filesToUpload.length===0){ dropZone.classList.remove("has-file"); }
+}
+dropZone.addEventListener("dragover", e=>{e.preventDefault();dropZone.classList.add("dragover");});
+dropZone.addEventListener("dragleave", ()=>dropZone.classList.remove("dragover"));
+dropZone.addEventListener("drop", e=>{e.preventDefault();dropZone.classList.remove("dragover");handleFileSelection(e.dataTransfer.files);});
+dropZone.addEventListener("click", ()=>fileInput.click());
+fileInput.addEventListener("change", ()=>handleFileSelection(fileInput.files));
+
+/* ========= ADMIN UNLOCK (inline) ========= */
+unlockBtn.onclick = ()=>{
+  if(adminUnlocked){
+    adminUnlocked = false;
+    unlockBtn.textContent = "🔒 Unlock Admin";
+    unlockPanel.classList.remove("show");
+    showToast("Admin locked.");
+    loadItems();
+    setTTEditable(false);
+  }else{
+    unlockPanel.classList.add("show");
+    unlockPw.focus();
+  }
+};
+unlockConfirm.onclick = ()=>{
+  if(unlockPw.value.trim() === PASSWORD){
+    adminUnlocked = true;
+    unlockBtn.textContent = "🔓 Admin Unlocked";
+    unlockPanel.classList.remove("show");
+    unlockPw.value = "";
+    showToast("Admin unlocked.", "ok");
+    loadItems();
+    setTTEditable(true);
+  }else{
+    showToast("Wrong password.", "err");
+  }
+};
+
+/* ========= POST ========= */
+uploadBtn.onclick = async ()=>{
+  const uploader = uploaderInput.value.trim();
+  const subject = subjectInput.value.trim();
+  const text = currentTab === "announcements" ? announcementText.value.trim() : postText.value.trim();
+  const pw = passwordInput.value.trim();
+
+  if(!uploader || !subject){
+    sheetMsg.textContent = "Uploader name and subject are required.";
+    sheetMsg.style.display = "block";
+    return;
+  }
+  // Password required only for Homework and Announcements
+  if(currentTab === "homework" || currentTab === "announcements"){
+    if(pw !== PASSWORD){
+      sheetMsg.textContent = "Incorrect password.";
+      sheetMsg.style.display = "block";
+      return;
+    }
+  }
+
+  sheetMsg.style.display = "none";
+  uploadBtn.disabled = true;
+  uploadBtn.innerText = "Uploading...";
+  progBarSpan.parentElement.style.display = "block";
+  progBarSpan.style.width = "0%";
+
+  let uploadedFilePaths = [];
+  if(filesToUpload.length>0){
+    for(let i=0;i<filesToUpload.length;i++){
+      const file = filesToUpload[i];
+      const filePath = `${Date.now()}_${file.name}`;
+      const { error: upErr } = await sb.storage.from(currentTab).upload(filePath, file);
+      if(upErr){
+        sheetMsg.textContent = "File upload error: " + upErr.message;
+        sheetMsg.style.display = "block";
+        uploadBtn.disabled=false; uploadBtn.innerText="Post";
+        return;
+      }
+      uploadedFilePaths.push(filePath);
+      progBarSpan.style.width = `${((i+1)/filesToUpload.length)*100}%`;
+    }
+  }
+
+  const { error } = await sb.from(currentTab).insert([{
+    uploader, subject, text, attachments: uploadedFilePaths, timestamp: new Date().toISOString()
+  }]);
+  if(error){
+    sheetMsg.textContent = "Database insert error: " + error.message;
+    sheetMsg.style.display = "block";
+    uploadBtn.disabled=false; uploadBtn.innerText="Post";
+    return;
+  }
+
+  resetSheet();
+  showToast("Posted to " + currentTab + "!", "ok");
+  loadItems();
+};
+
+/* ========= TIMETABLE ========= */
+const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday"]; // No Saturday
+function ttRow(day, rec, editable){
+  const v = (k)=> (rec && rec[k]) || "";
+  return `<div class="trow" data-day="${day}">
+    <div class="tcell"><strong>${day}</strong></div>
+    ${[1,2,3,4,5,6].map(n=>`<div class="tcell">${editable?`<input data-col="period${n}" value="${escapeAttr(v('period'+n))}">`:`${escapeHtml(v('period'+n))}`}</div>`).join("")}
+  </div>`;
+}
+async function loadTimetable(){
+  ttRows.innerHTML = "";
+  const { data, error } = await sb.from("timetable").select("*");
+  if(error){ showToast("Failed to load timetable: "+error.message, "err", 4000); return; }
+  const byDay = new Map();
+  (data||[]).forEach(r=> byDay.set(r.day, r));
+  ttRows.innerHTML = DAYS.map(d=> ttRow(d, byDay.get(d), adminUnlocked)).join("");
+  saveTTBtn.disabled = !adminUnlocked;
+}
+function setTTEditable(editable){
+  // rebuild rows with new editable state using latest values from DOM
+  const rows = Array.from(ttRows.querySelectorAll(".trow"));
+  const snapshot = {};
+  rows.forEach(r=>{
+    const day = r.getAttribute("data-day");
+    snapshot[day] = {};
+    [1,2,3,4,5,6].forEach(n=>{
+      const inp = r.querySelector(`[data-col="period${n}"]`);
+      snapshot[day][`period${n}`] = inp ? inp.value : r.children[n].textContent.trim();
+    });
+  });
+  ttRows.innerHTML = DAYS.map(d=> ttRow(d, snapshot[d], editable)).join("");
+  saveTTBtn.disabled = !editable;
+}
+saveTTBtn.onclick = async ()=>{
+  if(!adminUnlocked){ showToast("Unlock admin to edit timetable.", "warn"); return; }
+  const rows = Array.from(ttRows.querySelectorAll(".trow"));
+  const payload = rows.map(r=>{
+    const day = r.getAttribute("data-day");
+    const obj = { day };
+    [1,2,3,4,5,6].forEach(n=>{
+      obj[`period${n}`] = (r.querySelector(`[data-col="period${n}"]`)||{}).value || "";
+    });
+    obj.updated_at = new Date().toISOString();
+    return obj;
+  });
+  const { error } = await sb.from("timetable").upsert(payload, { onConflict:"day" });
+  if(error){ showToast("Save failed: "+error.message, "err", 4000); return; }
+  showToast("Timetable saved.", "ok");
+  loadTimetable();
+};
+
+/* ========= INIT ========= */
+window.addEventListener("load", ()=>{
+  showToast("Welcome to VIII-C Hub!");
+  switchTab("notes");
+});
 </script>
 </body>
 </html>
-
 

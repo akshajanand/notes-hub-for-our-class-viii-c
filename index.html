@@ -324,7 +324,7 @@ function resetSheet(){
   fileInput.value = "";
   filesToUpload = [];
   dropZone.classList.remove("has-file");
-  dropZone.innerText = "📁 Drag & Drop files or click to select";
+  dropZone.innerText = " Drag & Drop files or click to select";
   progBarSpan.parentElement.style.display = "none";
   progBarSpan.style.width = "0%";
   sheetMsg.style.display = "none";
@@ -346,7 +346,7 @@ cancelBtn.onclick = resetSheet;
 function handleFileSelection(files){
   filesToUpload = Array.from(files);
   dropZone.classList.add("has-file");
-  dropZone.innerText = filesToUpload.length>0 ? `${filesToUpload.length} file(s) selected` : "📁 Drag & Drop files or click to select";
+  dropZone.innerText = filesToUpload.length>0 ? `${filesToUpload.length} file(s) selected` : " Drag & Drop files or click to select";
   if(filesToUpload.length===0){ dropZone.classList.remove("has-file"); }
 }
 dropZone.addEventListener("dragover", e=>{e.preventDefault();dropZone.classList.add("dragover");});
@@ -359,7 +359,7 @@ fileInput.addEventListener("change", ()=>handleFileSelection(fileInput.files));
 unlockBtn.onclick = ()=>{
   if(adminUnlocked){
     adminUnlocked = false;
-    unlockBtn.textContent = "🔒 Unlock Admin";
+    unlockBtn.textContent = " Unlock Admin";
     unlockPanel.classList.remove("show");
     showToast("Admin locked.");
     loadItems();
@@ -372,7 +372,7 @@ unlockBtn.onclick = ()=>{
 unlockConfirm.onclick = ()=>{
   if(unlockPw.value.trim() === PASSWORD){
     adminUnlocked = true;
-    unlockBtn.textContent = "🔓 Admin Unlocked";
+    unlockBtn.textContent = " Admin Unlocked";
     unlockPanel.classList.remove("show");
     unlockPw.value = "";
     showToast("Admin unlocked.", "ok");
@@ -501,3 +501,4 @@ window.addEventListener("load", ()=>{
 </script>
 </body>
 </html>
+
